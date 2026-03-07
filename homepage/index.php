@@ -15,6 +15,9 @@ $config = get_config();
 $site_name = get_sitename();
 $color_scheme = get_color_scheme();
 set_timezone();
+if (isset($_GET['view']) && is_protected_view($_GET['view'])) {
+  ensure_authenticated();
+}
 
 ?>
 <!DOCTYPE html>

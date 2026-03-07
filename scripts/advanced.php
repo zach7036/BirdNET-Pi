@@ -650,7 +650,7 @@ echo "Update Settings";
 ?>
       </button></div>
       </form>
-      <form action="" method="GET">
+      <form action="../index.php" method="GET" target="_top">
 <div class="float">
         <button type="submit" name="view" value="Settings">Basic Settings</button>
 </div>

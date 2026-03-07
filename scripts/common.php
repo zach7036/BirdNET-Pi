@@ -75,10 +75,30 @@ function is_authenticated() {
   return $ret;
 }
 
+function is_protected_view($view) {
+  $protected_views = [
+    'Settings',
+    'Advanced',
+    'Included',
+    'Excluded',
+    'Whitelisted',
+    'Species Management',
+    'Services',
+    'Webterm',
+    'Adminer',
+    'File',
+    'System Controls'
+  ];
+  return in_array($view, $protected_views);
+}
+
 function ensure_authenticated($error_message = 'You cannot edit the settings for this installation') {
   if (!is_authenticated()) {
     header('WWW-Authenticate: Basic realm="My Realm"');
     header('HTTP/1.0 401 Unauthorized');
+    // If in an iframe and the browser blocks the popup, this body will be rendered.
+    // We attempt to breakout and reload at the top level so the popup can show.
+    echo '<script>if (window.top !== window.self) { window.top.location.reload(); }</script>';
     echo '<table><tr><td>' . $error_message . '</td></tr></table>';
     exit;
   }

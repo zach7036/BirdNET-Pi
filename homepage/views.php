@@ -161,7 +161,7 @@ elseif ($config["LONGITUDE"] == "0.000") {
   </div>
   <button type="button" class="icon" onclick="myFunction()"><img src="images/menu.png"></button>
 </div>
-<form action="views.php" method="GET" id="views">
+<form action="index.php" method="GET" id="views" target="_top">
 <div class="sidebar" id="mySidebar">
   <div class="sidebar-header">
     <div class="sidebar-logo">
@@ -429,7 +429,7 @@ if(isset($_GET['view'])){
             .tools-group button { width: 100%; margin: 6px 0 !important; text-align: left; padding: 10px 15px; font-size: 1.1em; display: flex; justify-content: space-between; align-items: center; }
           </style>
           <div class=\"centered\">
-          <form action=\"views.php\" method=\"GET\" id=\"views\">
+          <form action=\"index.php\" method=\"GET\" id=\"views\" target=\"_top\">
             <div class=\"tools-grid\">
               <div class=\"tools-group\">
                 <h3>⚙️ System & Settings</h3>
