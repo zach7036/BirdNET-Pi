@@ -121,6 +121,15 @@ elseif ($config["LONGITUDE"] == "0.000") {
     height: 36px;
     outline: none;
   }
+  @media (max-width: 1000px) {
+    #live-audio-panel {
+      top: 56px; /* Offset to be directly below the mobile header */
+    }
+    #live-audio-tab {
+      border-top: 1px solid var(--border, #ccc);
+      border-radius: 8px 0 0 8px;
+    }
+  }
 </style>
 <div id="live-audio-panel" onmouseleave="startCloseTimer()" onmouseenter="cancelCloseTimer()">
   <div id="live-audio-tab" onclick="toggleAudioPanel()">
