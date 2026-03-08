@@ -207,15 +207,17 @@ if (isset($_GET['ascii'])) {
 </style>
 
 <div class="report-container">
+    <?php if (!isset($subview) || $subview != 'report'): ?>
     <header class="report-header">
         <h1>Week <?php echo date('W', $enddate); ?> Report</h1>
         <div class="report-date"><?php echo date('M jS', $startdate); ?> — <?php echo date('M jS, Y', $enddate); ?></div>
     </header>
+    <?php endif; ?>
 
     <div class="kpi-cards">
         <div class="kpi-card">
             <span class="kpi-val"><?php echo number_format($total_detections); ?></span>
-            <span class="kpi-label">Total Detections <?php echo get_trend_html($total_detections, $prior_total); ?></span>
+            <span class="kpi-label">Total Detections <?php echo get_trend_html($total_detections, $prior_total); ?> <span class="info-btn">ⓘ<span class="info-tooltip">Total number of bird sounds identified during the full week (Sunday to Saturday).</span></span></span>
         </div>
         <div class="kpi-card">
             <span class="kpi-val"><?php echo number_format($daily_avg); ?></span>
@@ -223,7 +225,7 @@ if (isset($_GET['ascii'])) {
         </div>
         <div class="kpi-card">
             <span class="kpi-val"><?php echo number_format($unique_species); ?></span>
-            <span class="kpi-label">Unique Species <?php echo get_trend_html($unique_species, $prior_species); ?></span>
+            <span class="kpi-label">Unique Species <?php echo get_trend_html($unique_species, $prior_species); ?> <span class="info-btn">ⓘ<span class="info-tooltip">Number of different bird species identified this week.</span></span></span>
         </div>
         <div class="kpi-card">
             <span class="kpi-val"><?php echo $busiest_day_name; ?></span>
@@ -237,7 +239,7 @@ if (isset($_GET['ascii'])) {
 
     <div class="sections-grid">
         <section class="report-section">
-            <div class="section-title">🏆 Top 10 Species</div>
+            <div class="section-title">🏆 Top 10 Species <span class="info-btn">ⓘ<span class="info-tooltip">The most frequently detected species of the week, ranked by total count.</span></span></div>
             <ul class="report-list">
                 <?php
                 for ($i = 0; $i < min(10, count($detections)); $i++) {
@@ -258,7 +260,7 @@ if (isset($_GET['ascii'])) {
         </section>
 
         <section class="report-section">
-            <div class="section-title">✨ First Time Seen This Week</div>
+            <div class="section-title">✨ First Time Seen This Week <span class="info-btn">ⓘ<span class="info-tooltip">Species that were detected this week but have NO record in the system before this week started. Great for tracking new arrivals!</span></span></div>
             <ul class="report-list">
                 <?php
                 $new_count = 0;

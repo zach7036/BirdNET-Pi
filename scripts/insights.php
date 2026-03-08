@@ -348,7 +348,10 @@ $db->close();
     <header class="insights-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
         <div>
             <h1>BirdNET Insights: <?php 
-                echo ucfirst($subview == 'dashboard' ? 'Dashboard' : ($subview == 'environmental' ? 'Weather Impacts' : $subview)); 
+                if ($subview == 'dashboard') echo 'Dashboard';
+                elseif ($subview == 'environmental') echo 'Weather Impacts';
+                elseif ($subview == 'report') echo 'Weekly Report';
+                else echo ucfirst($subview); 
             ?></h1>
             <div class="insights-subtitle">
                 <?php
@@ -357,6 +360,7 @@ $db->close();
                     case 'migration': echo 'Seasonal trends and migration tracking.'; break;
                     case 'environmental': echo 'Correlations between weather and bird activity.'; break;
                     case 'health': echo 'Forecasting, data quality, and system health.'; break;
+                    case 'report': echo 'Comprehensive summary of last week\'s activity.'; break;
                     default: echo 'Deep behavioral analysis and seasonal trends for your station.'; break;
                 }
                 ?>
@@ -946,6 +950,10 @@ $db->close();
                 <?php endforeach; ?>
             </div>
         </section>
+    <?php endif; ?>
+    
+    <?php if ($subview == 'report'): ?>
+        <?php include 'weekly_report.php'; ?>
     <?php endif; ?>
 </div>
 

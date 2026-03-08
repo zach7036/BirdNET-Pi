@@ -175,7 +175,6 @@ elseif ($config["LONGITUDE"] == "0.000") {
     <button type="submit" name="view" value="Spectrogram" form="views" onclick="document.getElementById('sidebar_subview').value='';">📊 <span>Spectrogram</span></button>
     <button type="submit" name="view" value="Analytics" form="views" onclick="document.getElementById('sidebar_subview').value='';">📈 <span>Analytics</span></button>
     <button type="submit" name="view" value="Species" form="views" onclick="document.getElementById('sidebar_subview').value='';">🐧 <span>Species</span></button>
-    <button type="submit" name="view" value="Report" form="views" onclick="document.getElementById('sidebar_subview').value='';">📰 <span>Report</span></button>
     <div class="sidebar-dropdown">
       <button type="button" class="sidebar-dropdown-toggle">🧬 <span>Insights</span> <span class="dropdown-arrow">▼</span></button>
       <div class="sidebar-dropdown-content">
@@ -184,6 +183,7 @@ elseif ($config["LONGITUDE"] == "0.000") {
         <button type="submit" name="view" value="Insights" data-subview="migration" onclick="document.getElementById('sidebar_subview').value='migration';">🦅 <span>Migration</span></button>
         <button type="submit" name="view" value="Insights" data-subview="environmental" onclick="document.getElementById('sidebar_subview').value='environmental';">🌤️ <span>Weather</span></button>
         <button type="submit" name="view" value="Insights" data-subview="health" onclick="document.getElementById('sidebar_subview').value='health';">🔍 <span>Health</span></button>
+        <button type="submit" name="view" value="Insights" data-subview="report" onclick="document.getElementById('sidebar_subview').value='report';">📰 <span>Weekly Report</span></button>
       </div>
     </div>
     <button type="submit" name="view" value="Recordings" form="views" onclick="document.getElementById('sidebar_subview').value='';">🎵 <span>Recordings</span></button>
