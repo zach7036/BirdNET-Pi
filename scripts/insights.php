@@ -198,6 +198,7 @@ $db->close();
         padding: 24px 15px;
         border-radius: 16px;
         border: 1px solid var(--border);
+        /* overflow: hidden; removed to allow tooltips to show */
         text-align: center;
         box-shadow: var(--shadow-sm);
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -223,7 +224,7 @@ $db->close();
         border-radius: 20px;
         border: 1px solid var(--border);
         box-shadow: var(--shadow-sm);
-        overflow: hidden;
+        /* overflow: hidden; removed to allow tooltips to show */
         transition: all 0.3s ease;
     }
     .insights-section:hover {
@@ -299,7 +300,7 @@ $db->close();
         pointer-events: none;
         opacity: 0;
         transition: all 0.2s ease;
-        z-index: 1000;
+        z-index: 9999; /* Ensure it's above everything */
         font-weight: 400;
         text-align: left;
         text-transform: none;
@@ -317,7 +318,7 @@ $db->close();
     }
     .info-btn:hover .info-tooltip {
         opacity: 1;
-        bottom: 150%;
+        bottom: 140%;
     }
     @media (max-width: 768px) {
         .info-tooltip {
