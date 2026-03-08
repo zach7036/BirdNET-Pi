@@ -485,6 +485,71 @@ $high_conf_count = $db->querySingle("SELECT COUNT(*) FROM detections WHERE Confi
 $med_conf_count = $db->querySingle("SELECT COUNT(*) FROM detections WHERE Confidence >= 0.5 AND Confidence < 0.8") ?: 0;
 $low_conf_count = $db->querySingle("SELECT COUNT(*) FROM detections WHERE Confidence < 0.5") ?: 0;
 
+// =============================================
+// PHASE 7: Long-term Trends & Diversity
+// =============================================
+
+// 26. Monthly Stats (Diversity & Volume)
+$monthly_stats = [];
+$monthly_res = $db->query("
+    SELECT strftime('%Y-%m', Date) as month,
+           COUNT(DISTINCT Sci_Name) as diversity,
+           COUNT(*) as detections
+    FROM detections
+    GROUP BY month
+    ORDER BY month ASC
+    LIMIT 24
+");
+if ($monthly_res) {
+    while($row = $monthly_res->fetchArray(SQLITE3_ASSOC)) {
+        $monthly_stats[] = $row;
+    }
+}
+$month_labels = json_encode(array_map(function($r) { return $r['month']; }, $monthly_stats));
+$month_div = json_encode(array_map(function($r) { return $r['diversity']; }, $monthly_stats));
+$month_det = json_encode(array_map(function($r) { return $r['detections']; }, $monthly_stats));
+
+// 27. Shannon Diversity Index (Current - Last 30 Days)
+$shannon_index = 0;
+$species_counts = $db->query("
+    SELECT COUNT(*) as cnt
+    FROM detections
+    WHERE Date >= date('now', '-30 days')
+    GROUP BY Sci_Name
+");
+$total_30d = $db->querySingle("SELECT COUNT(*) FROM detections WHERE Date >= date('now', '-30 days')") ?: 0;
+
+if ($species_counts && $total_30d > 0) {
+    while($row = $species_counts->fetchArray(SQLITE3_ASSOC)) {
+        $pi = $row['cnt'] / $total_30d;
+        $shannon_index -= $pi * log($pi);
+    }
+}
+$shannon_index = round($shannon_index, 3);
+
+// Diversity Score Description
+$diversity_score_text = "Low";
+if ($shannon_index > 2.5) $diversity_score_text = "Very High";
+elseif ($shannon_index > 1.8) $diversity_score_text = "High";
+elseif ($shannon_index > 1.2) $diversity_score_text = "Moderate";
+
+// 28. Year-over-Year Comparison (Current Month)
+$current_month_name = date('F');
+$this_month_diversity = $db->querySingle("
+    SELECT COUNT(DISTINCT Sci_Name) FROM detections
+    WHERE strftime('%m', Date) = strftime('%m', 'now')
+      AND strftime('%Y', Date) = strftime('%Y', 'now')
+") ?: 0;
+
+$last_year_diversity = $db->querySingle("
+    SELECT COUNT(DISTINCT Sci_Name) FROM detections
+    WHERE strftime('%m', Date) = strftime('%m', 'now')
+      AND strftime('%Y', Date) = strftime('%Y', 'now', '-1 year')
+") ?: 0;
+
+$yoy_diversity_diff = $this_month_diversity - $last_year_diversity;
+$yoy_diversity_pct = ($last_year_diversity > 0) ? round(($yoy_diversity_diff / $last_year_diversity) * 100, 1) : 100;
+
 $db->close();
 ?>
 
@@ -1036,6 +1101,47 @@ $db->close();
     </div>
 </div>
 
+<!-- ====== PHASE 7: Long-term Trends & Diversity ====== -->
+<div class="insights-container">
+    <h2 style="margin: 40px 0 20px; font-size: 1.5em; color: var(--text-heading);">📈 Long-term Trends & Diversity</h2>
+
+    <div class="insights-kpi-cards" style="margin-bottom: 30px;">
+        <!-- Shannon Diversity Index Card -->
+        <div class="insights-kpi-card" style="flex: 1 1 300px;">
+            <div>
+                <span class="insights-kpi-val"><?php echo $shannon_index; ?></span>
+                <span class="insights-kpi-label">Shannon Diversity Index (30d)</span>
+            </div>
+            <div style="margin-top: 10px; font-size: 0.9em;">
+                Score: <strong style="color: var(--accent);"><?php echo $diversity_score_text; ?></strong>
+                <div style="color: var(--text-muted); font-size: 0.8em; margin-top: 4px;">Measures both species richness and evenness.</div>
+            </div>
+        </div>
+
+        <!-- YoY Comparison Card -->
+        <div class="insights-kpi-card" style="flex: 1 1 300px;">
+            <div>
+                <span class="insights-kpi-val"><?php echo $this_month_diversity; ?></span>
+                <span class="insights-kpi-label">Species this <?php echo $current_month_name; ?></span>
+            </div>
+            <div style="margin-top: 10px; font-size: 0.9em;">
+                vs Last Year: <strong style="color: <?php echo $yoy_diversity_diff >= 0 ? '#10b981' : '#ef4444'; ?>;">
+                    <?php echo ($yoy_diversity_diff >= 0 ? '+' : '') . $yoy_diversity_diff; ?> species
+                    (<?php echo ($yoy_diversity_diff >= 0 ? '+' : '') . $yoy_diversity_pct; ?>%)
+                </strong>
+            </div>
+        </div>
+    </div>
+
+    <!-- Monthly Stats Chart -->
+    <section class="insights-section">
+        <div class="insights-section-title">📊 Diversity vs. Detection Volume (Monthly)</div>
+        <div style="padding: 20px;">
+            <canvas id="monthlyTrendsChart" height="100"></canvas>
+        </div>
+    </section>
+</div>
+
 <!-- Chart.js for Hourly Activity -->
 <script src="static/Chart.bundle.js"></script>
 <script>
@@ -1153,6 +1259,47 @@ document.addEventListener('DOMContentLoaded', function() {
                     callbacks: {
                         label: function(item) { return (item.yLabel * 100).toFixed(1) + '% confidence'; }
                     }
+                }
+            }
+        });
+    }
+
+    // Phase 7: Monthly Trends Chart
+    var monthCtx = document.getElementById('monthlyTrendsChart');
+    if (monthCtx) {
+        new Chart(monthCtx, {
+            type: 'bar',
+            data: {
+                labels: <?php echo $month_labels; ?>,
+                datasets: [{
+                    label: 'Detections',
+                    type: 'bar',
+                    data: <?php echo $month_det; ?>,
+                    backgroundColor: 'rgba(99, 102, 241, 0.3)',
+                    borderColor: 'rgba(99, 102, 241, 1)',
+                    borderWidth: 1,
+                    yAxisID: 'y-dets'
+                }, {
+                    label: 'Species Diversity',
+                    type: 'line',
+                    data: <?php echo $month_div; ?>,
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    borderWidth: 3,
+                    pointRadius: 4,
+                    fill: false,
+                    yAxisID: 'y-div'
+                }]
+            },
+            options: {
+                responsive: true,
+                legend: { labels: { fontColor: fontColor } },
+                scales: {
+                    yAxes: [
+                        { id: 'y-dets', position: 'left', ticks: { beginAtZero: true, fontColor: fontColor }, scaleLabel: { display: true, labelString: 'Total Detections', fontColor: fontColor } },
+                        { id: 'y-div', position: 'right', ticks: { beginAtZero: true, fontColor: '#10b981' }, scaleLabel: { display: true, labelString: 'Species Count', fontColor: '#10b981' }, gridLines: { drawOnChartArea: false } }
+                    ],
+                    xAxes: [{ ticks: { fontColor: fontColor, maxRotation: 45, minRotation: 0 } }]
                 }
             }
         });
