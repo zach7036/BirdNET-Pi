@@ -158,8 +158,9 @@ if (isset($_GET['ascii'])) {
         min-width: 180px;
         max-width: none;
         position: relative;
+        z-index: 1;
     }
-    .kpi-card:hover { transform: translateY(-5px); z-index: 10; }
+    .kpi-card:hover { transform: translateY(-5px); z-index: 1000; }
     .kpi-val { font-size: 2em; font-weight: 800; display: block; margin-bottom: 4px; white-space: nowrap; }
     .kpi-label { font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
     
@@ -194,8 +195,9 @@ if (isset($_GET['ascii'])) {
         /* overflow: hidden; removed to allow tooltips to show */
         box-shadow: var(--shadow-sm);
         position: relative;
+        z-index: 1;
     }
-    .report-section:hover { z-index: 5; }
+    .report-section:hover { z-index: 500; }
     .section-title {
         background: var(--bg-table-row);
         padding: 15px 20px;
@@ -244,6 +246,7 @@ if (isset($_GET['ascii'])) {
     .info-btn:hover {
         background: var(--accent, #6366f1);
         color: white;
+        z-index: 10000;
     }
     .info-tooltip {
         position: absolute;
