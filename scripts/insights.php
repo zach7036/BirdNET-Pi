@@ -551,7 +551,7 @@ $db->close();
 
     <!-- Activity Windows -->
     <section class="insights-section" style="margin-top: 30px;">
-        <div class="insights-section-title">⏱️ Activity Windows (Top Species) <span class="info-btn">ⓘ<span class="info-tooltip">The typical earliest and latest times a species is active at your station, calculated from historical density data.</span></span></div>
+        <div class="insights-section-title">⏱️ Activity Windows (Top Species) <span class="info-btn">ⓘ<span class="info-tooltip">The typical earliest and latest times a species is active at your station. Only species with 5+ detections are included to ensure reliable timing data.</span></span></div>
         <div class="insights-stats-list">
             <?php if(empty($activity_windows)): ?>
             <div class="insights-stats-item">
