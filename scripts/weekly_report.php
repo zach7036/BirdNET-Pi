@@ -1,204 +1,257 @@
-<?php 
+<?php
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 require_once 'scripts/common.php';
 
-$startdate = strtotime('last sunday') - (7*86400);
-$enddate = strtotime('last sunday') - (1*86400);
-
-$debug = false;
-
-function safe_percentage($count, $prior_count) {
-	if ($prior_count !== 0) {
-		$percentagediff = round((($count - $prior_count) / $prior_count) * 100);
-	} else {
-		if ($count > 0) {
-			$percentagediff = INF;
-		} else {
-			$percentagediff = 0;
-		}
-	}
-	return $percentagediff;
+// Determine the start and end of the most recently completed week (Sunday to Saturday)
+// If today is Sunday, the completed week is the one that ended yesterday.
+if (date('w') == 0) {
+    // Today is Sunday, 'last sunday' would be 7 days ago, so we use 'today' as the anchor.
+    $anchor_sunday = strtotime('today');
+} else {
+    $anchor_sunday = strtotime('last sunday');
 }
+
+$startdate = $anchor_sunday - (7 * 86400);
+$enddate = $anchor_sunday - (1 * 86400);
 
 $db = new SQLite3('./scripts/birds.db', SQLITE3_OPEN_READONLY);
 $db->busyTimeout(1000);
 
-$statement1 = $db->prepare('SELECT Sci_Name, Com_Name, COUNT(*) FROM detections WHERE Date BETWEEN "' . date("Y-m-d", $startdate) . '" AND "' . date("Y-m-d", $enddate) . '" GROUP By Sci_Name ORDER BY COUNT(*) DESC');
-ensure_db_ok($statement1);
-$result1 = $statement1->execute();
+// 1. Fetch species counts for the current week
+$stmt1 = $db->prepare('SELECT Sci_Name, Com_Name, COUNT(*) as cnt FROM detections WHERE Date BETWEEN :start AND :end GROUP BY Sci_Name ORDER BY cnt DESC');
+$stmt1->bindValue(':start', date("Y-m-d", $startdate));
+$stmt1->bindValue(':end', date("Y-m-d", $enddate));
+ensure_db_ok($stmt1);
+$result1 = $stmt1->execute();
+
 $detections = [];
-while ($detection = $result1->fetchArray(SQLITE3_ASSOC)) {
-  $com_name = $detection["Com_Name"];
-  $sci_name = $detection["Sci_Name"];
-  $scount = $detection["COUNT(*)"];
+while ($row = $result1->fetchArray(SQLITE3_ASSOC)) {
+    $sci_name = $row['Sci_Name'];
+    $com_name = $row['Com_Name'];
+    $count = $row['cnt'];
 
-  # previous week
-  $statement2 = $db->prepare('SELECT COUNT(*) FROM detections WHERE Sci_Name == "' . $detection["Sci_Name"] . '" AND Date BETWEEN "' . date("Y-m-d", $startdate - (7 * 86400)) . '" AND "' . date("Y-m-d", $enddate - (7 * 86400)) . '"');
-  ensure_db_ok($statement2);
-  $result2 = $statement2->execute();
-  $priorweekcount = $result2->fetchArray(SQLITE3_ASSOC)['COUNT(*)'];
-  $percentagediff = safe_percentage($scount, $priorweekcount);
+    // 2. Prior week comparison
+    $prior_start = date("Y-m-d", $startdate - (7 * 86400));
+    $prior_end = date("Y-m-d", $enddate - (7 * 86400));
+    $stmt2 = $db->prepare('SELECT COUNT(*) as cnt FROM detections WHERE Sci_Name = :sci AND Date BETWEEN :pstart AND :pend');
+    $stmt2->bindValue(':sci', $sci_name);
+    $stmt2->bindValue(':pstart', $prior_start);
+    $stmt2->bindValue(':pend', $prior_end);
+    $prior_count = $stmt2->execute()->fetchArray(SQLITE3_ASSOC)['cnt'];
 
-  # is_first_seen?
-  $statement3 = $db->prepare('SELECT COUNT(*) FROM detections WHERE Sci_Name == "'.$sci_name.'" AND Date NOT BETWEEN "'.date("Y-m-d",$startdate).'" AND "'.date("Y-m-d",$enddate).'"');
-  ensure_db_ok($statement3);
-  $result3 = $statement3->execute();
-  $totalcount = $result3->fetchArray(SQLITE3_ASSOC)['COUNT(*)'];
-  $is_first_seen = $totalcount === 0;
+    // 3. Check if first seen (never seen before this week)
+    $stmt3 = $db->prepare('SELECT COUNT(*) as cnt FROM detections WHERE Sci_Name = :sci AND Date < :start');
+    $stmt3->bindValue(':sci', $sci_name);
+    $stmt3->bindValue(':start', date("Y-m-d", $startdate));
+    $ever_seen_before = $stmt3->execute()->fetchArray(SQLITE3_ASSOC)['cnt'];
 
-  $detections[$com_name] = ["count" => $scount, "percentagediff" => $percentagediff, "is_first_seen" => $is_first_seen];
+    $detections[] = [
+        'name' => $com_name,
+        'sci' => $sci_name,
+        'count' => $count,
+        'prior_count' => $prior_count,
+        'is_first_seen' => ($ever_seen_before == 0)
+    ];
 }
 
-$statement4 = $db->prepare('SELECT COUNT(*) FROM detections WHERE Date BETWEEN "'.date("Y-m-d",$startdate).'" AND "'.date("Y-m-d",$enddate).'"');
-ensure_db_ok($statement4);
-$result4 = $statement4->execute();
-$totalcount = $result4->fetchArray(SQLITE3_ASSOC)['COUNT(*)'];
+// Summary stats
+$total_detections = array_sum(array_column($detections, 'count'));
+$unique_species = count($detections);
 
-$statement5 = $db->prepare('SELECT COUNT(*) FROM detections WHERE Date BETWEEN "'.date("Y-m-d",$startdate- (7*86400)).'" AND "'.date("Y-m-d",$enddate- (7*86400)).'"');
-ensure_db_ok($statement5);
-$result5 = $statement5->execute();
-$priortotalcount = $result5->fetchArray(SQLITE3_ASSOC)['COUNT(*)'];
+$stmt_p = $db->prepare('SELECT COUNT(*) as cnt FROM detections WHERE Date BETWEEN :pstart AND :pend');
+$stmt_p->bindValue(':pstart', date("Y-m-d", $startdate - (7 * 86400)));
+$stmt_p->bindValue(':pend', date("Y-m-d", $enddate - (7 * 86400)));
+$prior_total = $stmt_p->execute()->fetchArray(SQLITE3_ASSOC)['cnt'];
 
-$statement6 = $db->prepare('SELECT COUNT(DISTINCT(Sci_Name)) FROM detections WHERE Date BETWEEN "'.date("Y-m-d",$startdate).'" AND "'.date("Y-m-d",$enddate).'"');
-ensure_db_ok($statement6);
-$result6 = $statement6->execute();
-$totalspeciestally = $result6->fetchArray(SQLITE3_ASSOC)['COUNT(DISTINCT(Sci_Name))'];
+$stmt_ps = $db->prepare('SELECT COUNT(DISTINCT(Sci_Name)) as cnt FROM detections WHERE Date BETWEEN :pstart AND :pend');
+$stmt_ps->bindValue(':pstart', date("Y-m-d", $startdate - (7 * 86400)));
+$stmt_ps->bindValue(':pend', date("Y-m-d", $enddate - (7 * 86400)));
+$prior_species = $stmt_ps->execute()->fetchArray(SQLITE3_ASSOC)['cnt'];
 
-$statement7 = $db->prepare('SELECT COUNT(DISTINCT(Sci_Name)) FROM detections WHERE Date BETWEEN "'.date("Y-m-d",$startdate- (7*86400)).'" AND "'.date("Y-m-d",$enddate- (7*86400)).'"');
-ensure_db_ok($statement7);
-$result7= $statement7->execute();
-$priortotalspeciestally = $result7->fetchArray(SQLITE3_ASSOC)['COUNT(DISTINCT(Sci_Name))'];
-
-$percentagedifftotal = safe_percentage($totalcount, $priortotalcount);
-
-if(isset($_GET['ascii'])) {
-	if($percentagedifftotal > 0) {
-		$percentagedifftotal = "<span style='color:green;font-size:small'>+".$percentagedifftotal."%</span>";
-	} else {
-		$percentagedifftotal = "<span style='color:red;font-size:small'>-".abs($percentagedifftotal)."%</span>";
-	}
-
-	$percentagedifftotaldistinctspecies = safe_percentage($totalspeciestally, $priortotalspeciestally);
-	if($percentagedifftotaldistinctspecies > 0) {
-		$percentagedifftotaldistinctspecies = "<span style='color:green;font-size:small'>+".$percentagedifftotaldistinctspecies."%</span>";
-	} else {
-		$percentagedifftotaldistinctspecies = "<span style='color:red;font-size:small'>-".abs($percentagedifftotaldistinctspecies)."%</span>";
-	}
-
-	echo "# BirdNET-Pi: Week ".date('W', $enddate)." Report\n";
-
-	echo "Total Detections: <b>".$totalcount."</b> (".$percentagedifftotal.")<br>";
-	echo "Unique Species Detected: <b>".$totalspeciestally."</b> (".$percentagedifftotaldistinctspecies.")<br><br>";
-
-	echo "= <b>Top 10 Species</b> =<br>";
-
-	$i = 0;
-	foreach($detections as $com_name=>$stats)
-	{
-    $count = $stats["count"];
-    $percentagediff = $stats["percentagediff"];
-		$i++;
-		if($i <= 10) {
-      if($percentagediff > 0) {
-              $percentagediff = "<span style='color:green;font-size:small'>+".$percentagediff."%</span>";
-      } else {
-              $percentagediff = "<span style='color:red;font-size:small'>-".abs($percentagediff)."%</span>";
-      }
-
-      echo $com_name." - ".$count." (".$percentagediff.")<br>";
-		}
-	}
-
-	echo "<br>= <b>Species Detected for the First Time</b> =<br>";
-
-  $newspeciescount=0;
-	foreach($detections as $com_name=>$stats)
-	{
-		if($stats["is_first_seen"]) {
-			$newspeciescount++;
-			echo $com_name." - ".$scount."<br>";
-		}
-	}
-	if($newspeciescount == 0) {
-		echo "No new species were seen this week.";
-	}
-
-  $prevweek = date('W', $enddate) - 1;
-  if($prevweek < 1) { $prevweek = 52; }
-
-	echo "<hr><span style='font-size:small'>* data from ".date('Y-m-d', $startdate)." — ".date('Y-m-d',$enddate).".</span><br>";
-	echo "<span style='font-size:small'>* percentages are calculated relative to week ".($prevweek).".</span>";
-
-	die();
+function get_trend_html($current, $prior) {
+    if ($prior == 0) return $current > 0 ? '<span class="trend up">NEW</span>' : '';
+    $diff = (($current - $prior) / $prior) * 100;
+    $class = $diff >= 0 ? 'up' : 'down';
+    $sign = $diff >= 0 ? '+' : '';
+    return sprintf('<span class="trend %s">%s%d%%</span>', $class, $sign, round($diff));
 }
 
+if (isset($_GET['ascii'])) {
+    // Keep legacy ASCII support if needed, but simplified
+    echo "BirdNET-Pi Weekly Report (Week " . date('W', $enddate) . ")\n";
+    echo "Range: " . date('Y-m-d', $startdate) . " to " . date('Y-m-d', $enddate) . "\n\n";
+    echo "Total Detections: $total_detections\n";
+    echo "Unique Species: $unique_species\n\n";
+    echo "Top 10 Species:\n";
+    for ($i = 0; $i < min(10, count($detections)); $i++) {
+        $d = $detections[$i];
+        echo "- " . $d['name'] . ": " . $d['count'] . "\n";
+    }
+    die();
+}
 ?>
-<div class="brbanner"> <?php
-echo "<h1>Week ".date('W', $enddate)." Report</h1>".date('F jS, Y',$startdate)." — ".date('F jS, Y',$enddate)."<br>";
-?>
-</div>
-<br>
-<?php // TODO: fix the box shadows, maybe make them a bit smaller on the tr ?>
-<table align="center" style="box-shadow:unset"><tr><td style="background-color:transparent">
-	<table>
-	<thead>
-		<tr>
-			<th><?php echo "Top 10 Species: <br>"; ?></th>
-		</tr>
-	</thead>
-	<tbody>
-	<?php
 
-	$i = 0;
-	foreach($detections as $com_name=>$stats)
-	{
-		$i++;
-		if($i <= 10) {
-        $count = $stats["count"];
-        $percentagediff = $stats["percentagediff"];
-			if($percentagediff > 0) {
-				$percentagediff = "<span style='color:green;font-size:small'>+".$percentagediff."%</span>";
-			} else {
-				$percentagediff = "<span style='color:red;font-size:small'>-".abs($percentagediff)."%</span>";
-			}
+<style>
+    .report-container {
+        padding: 20px;
+        max-width: 1200px;
+        margin: 0 auto;
+        color: var(--text-primary);
+    }
+    .report-header {
+        text-align: center;
+        margin-bottom: 30px;
+        background: var(--bg-card);
+        padding: 30px;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-md);
+    }
+    .report-header h1 {
+        margin: 0;
+        font-size: 2.2em;
+        background: linear-gradient(135deg, var(--accent) 0%, #6366f1 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    .report-date {
+        color: var(--text-secondary);
+        font-size: 1.1em;
+        margin-top: 10px;
+    }
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 20px;
+        margin-bottom: 40px;
+    }
+    .kpi-card {
+        background: var(--bg-card);
+        padding: 24px;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        text-align: center;
+        box-shadow: var(--shadow-sm);
+        transition: transform 0.2s;
+    }
+    .kpi-card:hover { transform: translateY(-5px); }
+    .kpi-val { font-size: 2.5em; font-weight: 800; display: block; margin-bottom: 4px; }
+    .kpi-label { font-size: 0.9em; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); }
+    
+    .trend { font-size: 0.7em; padding: 2px 8px; border-radius: 10px; font-weight: bold; margin-left: 8px; vertical-align: middle; }
+    .trend.up { background: #dcfce7; color: #166534; }
+    .trend.down { background: #fee2e2; color: #991b1b; }
 
-			echo "<tr><td>".$com_name."<br><small style=\"font-size:small\">".$count." (".$percentagediff.")</small><br></td></tr>";
-		}
-	}
-	?>
-	</tbody>
-	</table>
-	</td><td style="background-color:transparent">
+    .sections-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 30px;
+    }
+    .report-section {
+        background: var(--bg-card);
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        overflow: hidden;
+        box-shadow: var(--shadow-sm);
+    }
+    .section-title {
+        background: var(--bg-table-row);
+        padding: 15px 20px;
+        font-weight: 700;
+        border-bottom: 1px solid var(--border);
+        font-size: 1.1em;
+    }
+    .report-list { list-style: none; padding: 0; margin: 0; }
+    .report-item {
+        padding: 12px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid var(--border-light);
+    }
+    .report-item:last-child { border-bottom: none; }
+    .report-item:hover { background: rgba(0,0,0,0.02); }
+    .species-info { display: flex; flex-direction: column; }
+    .species-name { font-weight: 600; font-size: 1.05em; }
+    .species-sci { font-style: italic; font-size: 0.85em; color: var(--text-secondary); }
+    .count-box { text-align: right; }
+    .count-num { font-weight: 700; font-size: 1.1em; }
 
-	<table >
-	<thead>
-		<tr>
-			<th><?php echo "Species Detected for the First Time: <br>"; ?></th>
-		</tr>
-	</thead>
-	<tbody>
-	<?php 
+    @media (max-width: 800px) {
+        .sections-grid { grid-template-columns: 1fr; }
+    }
+</style>
 
-  $newspeciescount=0;
-	foreach($detections as $com_name=>$stats)
-	{
-		if($stats["is_first_seen"]) {
-			$newspeciescount++;
-			echo "<tr><td>".$com_name."<br><small style=\"font-size:small\">".$scount."</small><br></td></tr>";
-		}
-	}
-	if($newspeciescount == 0) {
-		echo "<tr><td>No new species were seen this week.</td></tr>";
-	}
-	?>
-	</tbody>
-	</table>
-	</td></tr></table>
+<div class="report-container">
+    <header class="report-header">
+        <h1>Week <?php echo date('W', $enddate); ?> Report</h1>
+        <div class="report-date"><?php echo date('M jS', $startdate); ?> — <?php echo date('M jS, Y', $enddate); ?></div>
+    </header>
 
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <span class="kpi-val"><?php echo number_format($total_detections); ?></span>
+            <span class="kpi-label">Total Detections <?php echo get_trend_html($total_detections, $prior_total); ?></span>
+        </div>
+        <div class="kpi-card">
+            <span class="kpi-val"><?php echo number_format($unique_species); ?></span>
+            <span class="kpi-label">Unique Species <?php echo get_trend_html($unique_species, $prior_species); ?></span>
+        </div>
+    </div>
 
-<br>
-<div style="text-align:center">
-	<hr><small style="font-size:small">* percentages are calculated relative to week <?php echo date('W', $enddate) - 1; ?></small>
+    <div class="sections-grid">
+        <section class="report-section">
+            <div class="section-title">🏆 Top 10 Species</div>
+            <ul class="report-list">
+                <?php
+                for ($i = 0; $i < min(10, count($detections)); $i++) {
+                    $d = $detections[$i];
+                    echo '<li class="report-item">';
+                    echo '  <div class="species-info">';
+                    echo '    <span class="species-name">' . $d['name'] . '</span>';
+                    echo '    <span class="species-sci">' . $d['sci'] . '</span>';
+                    echo '  </div>';
+                    echo '  <div class="count-box">';
+                    echo '    <span class="count-num">' . number_format($d['count']) . '</span>';
+                    echo '    ' . get_trend_html($d['count'], $d['prior_count']);
+                    echo '  </div>';
+                    echo '</li>';
+                }
+                ?>
+            </ul>
+        </section>
+
+        <section class="report-section">
+            <div class="section-title">✨ First Time Seen This Week</div>
+            <ul class="report-list">
+                <?php
+                $new_count = 0;
+                foreach ($detections as $d) {
+                    if ($d['is_first_seen']) {
+                        $new_count++;
+                        echo '<li class="report-item">';
+                        echo '  <div class="species-info">';
+                        echo '    <span class="species-name">' . $d['name'] . '</span>';
+                        echo '    <span class="species-sci">' . $d['sci'] . '</span>';
+                        echo '  </div>';
+                        echo '  <div class="count-box">';
+                        echo '    <span class="count-num">' . number_format($d['count']) . '</span>';
+                        echo '  </div>';
+                        echo '</li>';
+                    }
+                }
+                if ($new_count == 0) {
+                    echo '<li class="report-item" style="justify-content:center; color:var(--text-muted); padding:40px;">No new species detected this week.</li>';
+                }
+                ?>
+            </ul>
+        </section>
+    </div>
+
+    <footer style="margin-top: 40px; text-align: center; color: var(--text-muted); font-size: 0.9em;">
+        * Trends are calculated relative to week <?php echo date('W', $enddate) - 1; ?><br>
+        * Data range: <?php echo date('Y-m-d', $startdate); ?> to <?php echo date('Y-m-d', $enddate); ?>
+    </footer>
 </div>
