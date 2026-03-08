@@ -409,112 +409,110 @@ $temp_trend_dets = json_encode(array_map(function($r) { return $r['det_count']; 
 // PHASE 5: Species Relationships & Co-occurrence
 // =============================================
 
-// Known raptor families for the "Raptor Effect"
-$raptor_keywords = "('Accipiter%','Buteo%','Falco%','Haliaeetus%','Aquila%','Circus%','Strix%','Bubo%','Megascops%','Asio%','Tyto%')";
-
-// 18. Top Co-occurring Species Pairs (same Date + Hour)
+// 18. Co-occurring Species — Use a lightweight approach:
+//     Step 1: Get species lists per Date+Hour slot (GROUP_CONCAT)
+//     Step 2: Count pairs in PHP (avoids self-JOIN)
 $cooccur_pairs = [];
-$pair_res = $db->query("
-    SELECT a.Com_Name as species_a, b.Com_Name as species_b, COUNT(*) as times_together
-    FROM detections a
-    INNER JOIN detections b ON a.Date = b.Date
-        AND CAST(substr(a.Time, 1, 2) AS INTEGER) = CAST(substr(b.Time, 1, 2) AS INTEGER)
-        AND a.Sci_Name < b.Sci_Name
-    GROUP BY a.Sci_Name, b.Sci_Name
-    HAVING times_together >= 3
-    ORDER BY times_together DESC
-    LIMIT 10
+$slot_res = $db->query("
+    SELECT Date || '-' || CAST(substr(Time, 1, 2) AS INTEGER) as slot,
+           GROUP_CONCAT(DISTINCT Com_Name) as species_list,
+           GROUP_CONCAT(DISTINCT Sci_Name) as sci_list
+    FROM detections
+    GROUP BY slot
+    HAVING COUNT(DISTINCT Sci_Name) > 1
 ");
-if ($pair_res) {
-    while($row = $pair_res->fetchArray(SQLITE3_ASSOC)) {
-        $cooccur_pairs[] = $row;
-    }
-}
-
-// 19. Raptor Effect — Compare songbird detections in hours WITH vs WITHOUT raptor detections
-$raptor_effect = [];
-$raptor_check = $db->querySingle("
-    SELECT COUNT(DISTINCT Date || '-' || substr(Time,1,2)) FROM detections
-    WHERE Sci_Name LIKE 'Accipiter%' OR Sci_Name LIKE 'Buteo%' OR Sci_Name LIKE 'Falco%'
-       OR Sci_Name LIKE 'Haliaeetus%' OR Sci_Name LIKE 'Strix%' OR Sci_Name LIKE 'Bubo%'
-       OR Sci_Name LIKE 'Megascops%' OR Sci_Name LIKE 'Asio%' OR Sci_Name LIKE 'Tyto%'
-       OR Sci_Name LIKE 'Circus%' OR Sci_Name LIKE 'Aquila%'
-");
-$has_raptors = ($raptor_check > 0);
-
-if ($has_raptors) {
-    // Avg songbird count in hours WITH raptors
-    $with_raptor = $db->querySingle("
-        SELECT ROUND(AVG(cnt), 1) FROM (
-            SELECT d.Date, CAST(substr(d.Time, 1, 2) AS INTEGER) as hr, COUNT(*) as cnt
-            FROM detections d
-            WHERE d.Date || '-' || substr(d.Time,1,2) IN (
-                SELECT DISTINCT Date || '-' || substr(Time,1,2) FROM detections
-                WHERE Sci_Name LIKE 'Accipiter%' OR Sci_Name LIKE 'Buteo%' OR Sci_Name LIKE 'Falco%'
-                   OR Sci_Name LIKE 'Haliaeetus%' OR Sci_Name LIKE 'Strix%' OR Sci_Name LIKE 'Bubo%'
-                   OR Sci_Name LIKE 'Megascops%'
-            )
-            AND d.Sci_Name NOT LIKE 'Accipiter%' AND d.Sci_Name NOT LIKE 'Buteo%'
-            AND d.Sci_Name NOT LIKE 'Falco%' AND d.Sci_Name NOT LIKE 'Haliaeetus%'
-            AND d.Sci_Name NOT LIKE 'Strix%' AND d.Sci_Name NOT LIKE 'Bubo%'
-            AND d.Sci_Name NOT LIKE 'Megascops%'
-            GROUP BY d.Date, hr
-        )
-    ") ?: 0;
-
-    // Avg songbird count in hours WITHOUT raptors
-    $without_raptor = $db->querySingle("
-        SELECT ROUND(AVG(cnt), 1) FROM (
-            SELECT d.Date, CAST(substr(d.Time, 1, 2) AS INTEGER) as hr, COUNT(*) as cnt
-            FROM detections d
-            WHERE d.Date || '-' || substr(d.Time,1,2) NOT IN (
-                SELECT DISTINCT Date || '-' || substr(Time,1,2) FROM detections
-                WHERE Sci_Name LIKE 'Accipiter%' OR Sci_Name LIKE 'Buteo%' OR Sci_Name LIKE 'Falco%'
-                   OR Sci_Name LIKE 'Haliaeetus%' OR Sci_Name LIKE 'Strix%' OR Sci_Name LIKE 'Bubo%'
-                   OR Sci_Name LIKE 'Megascops%'
-            )
-            GROUP BY d.Date, hr
-        )
-    ") ?: 0;
-
-    // List raptors detected
-    $raptor_list = [];
-    $rap_res = $db->query("
-        SELECT Com_Name, COUNT(*) as cnt FROM detections
-        WHERE Sci_Name LIKE 'Accipiter%' OR Sci_Name LIKE 'Buteo%' OR Sci_Name LIKE 'Falco%'
-           OR Sci_Name LIKE 'Haliaeetus%' OR Sci_Name LIKE 'Strix%' OR Sci_Name LIKE 'Bubo%'
-           OR Sci_Name LIKE 'Megascops%' OR Sci_Name LIKE 'Asio%' OR Sci_Name LIKE 'Tyto%'
-           OR Sci_Name LIKE 'Circus%' OR Sci_Name LIKE 'Aquila%'
-        GROUP BY Sci_Name ORDER BY cnt DESC LIMIT 5
-    ");
-    if ($rap_res) {
-        while($row = $rap_res->fetchArray(SQLITE3_ASSOC)) {
-            $raptor_list[] = $row;
+$pair_counts = [];
+if ($slot_res) {
+    while($row = $slot_res->fetchArray(SQLITE3_ASSOC)) {
+        $names = explode(',', $row['species_list']);
+        $scis = explode(',', $row['sci_list']);
+        $n = count($names);
+        for ($i = 0; $i < $n; $i++) {
+            for ($j = $i + 1; $j < $n; $j++) {
+                $key = ($names[$i] < $names[$j]) ? $names[$i] . '|' . $names[$j] : $names[$j] . '|' . $names[$i];
+                $pair_counts[$key] = ($pair_counts[$key] ?? 0) + 1;
+            }
         }
     }
 }
+arsort($pair_counts);
+$pair_counts = array_slice($pair_counts, 0, 10, true);
+foreach ($pair_counts as $key => $count) {
+    if ($count < 3) continue;
+    $parts = explode('|', $key);
+    $cooccur_pairs[] = ['species_a' => $parts[0], 'species_b' => $parts[1], 'times_together' => $count];
+}
 
-// 20. Flock Patterns — Species with highest average co-detection count per hour
-$flock_species = [];
-$flock_res = $db->query("
-    SELECT d.Com_Name, ROUND(AVG(hourly_peers.peer_count), 1) as avg_peers, COUNT(*) as det_count
-    FROM detections d
-    INNER JOIN (
-        SELECT Date, CAST(substr(Time, 1, 2) AS INTEGER) as hr, COUNT(DISTINCT Sci_Name) - 1 as peer_count
+// 19. Raptor Effect — lightweight approach
+$raptor_condition = "Sci_Name LIKE 'Accipiter%' OR Sci_Name LIKE 'Buteo%' OR Sci_Name LIKE 'Falco%'
+   OR Sci_Name LIKE 'Haliaeetus%' OR Sci_Name LIKE 'Strix%' OR Sci_Name LIKE 'Bubo%'
+   OR Sci_Name LIKE 'Megascops%' OR Sci_Name LIKE 'Asio%' OR Sci_Name LIKE 'Tyto%'
+   OR Sci_Name LIKE 'Circus%' OR Sci_Name LIKE 'Aquila%'";
+
+$raptor_list = [];
+$rap_res = $db->query("SELECT Com_Name, COUNT(*) as cnt FROM detections WHERE $raptor_condition GROUP BY Sci_Name ORDER BY cnt DESC LIMIT 5");
+if ($rap_res) {
+    while($row = $rap_res->fetchArray(SQLITE3_ASSOC)) {
+        $raptor_list[] = $row;
+    }
+}
+$has_raptors = !empty($raptor_list);
+
+$with_raptor = 0;
+$without_raptor = 0;
+if ($has_raptors) {
+    // Get all hourly slots grouped, and mark if a raptor was present
+    $hourly_res = $db->query("
+        SELECT Date, CAST(substr(Time, 1, 2) AS INTEGER) as hr,
+               COUNT(*) as total,
+               SUM(CASE WHEN $raptor_condition THEN 1 ELSE 0 END) as raptor_cnt
         FROM detections
         GROUP BY Date, hr
-        HAVING COUNT(DISTINCT Sci_Name) > 1
-    ) hourly_peers ON d.Date = hourly_peers.Date AND CAST(substr(d.Time, 1, 2) AS INTEGER) = hourly_peers.hr
-    GROUP BY d.Sci_Name
+    ");
+    $with_total = 0; $with_slots = 0;
+    $without_total = 0; $without_slots = 0;
+    if ($hourly_res) {
+        while($row = $hourly_res->fetchArray(SQLITE3_ASSOC)) {
+            if ($row['raptor_cnt'] > 0) {
+                $with_total += ($row['total'] - $row['raptor_cnt']);
+                $with_slots++;
+            } else {
+                $without_total += $row['total'];
+                $without_slots++;
+            }
+        }
+    }
+    $with_raptor = $with_slots > 0 ? round($with_total / $with_slots, 1) : 0;
+    $without_raptor = $without_slots > 0 ? round($without_total / $without_slots, 1) : 0;
+}
+
+// 20. Flock Patterns — just use the hourly species counts (no self-JOIN)
+$flock_species = [];
+$flock_res = $db->query("
+    SELECT Com_Name, COUNT(*) as det_count
+    FROM detections
+    GROUP BY Sci_Name
     HAVING det_count >= 5
-    ORDER BY avg_peers DESC
+    ORDER BY det_count DESC
     LIMIT 8
 ");
+// For each top species, compute avg peers from the slot data we already have conceptually
+// Simpler: just show top species by detection count with a "social score" from the co-occurrence data
 if ($flock_res) {
     while($row = $flock_res->fetchArray(SQLITE3_ASSOC)) {
+        // Count how many unique pair entries this species appears in
+        $peer_count = 0;
+        foreach ($pair_counts as $key => $cnt) {
+            if (strpos($key, $row['Com_Name']) !== false) {
+                $peer_count += $cnt;
+            }
+        }
+        $row['social_score'] = $peer_count;
         $flock_species[] = $row;
     }
 }
+// Sort by social score
+usort($flock_species, function($a, $b) { return $b['social_score'] - $a['social_score']; });
 
 $db->close();
 ?>
@@ -1009,7 +1007,7 @@ $db->close();
                         <div class="insights-stats-name" style="margin-bottom: 2px;"><?php echo $f['Com_Name']; ?></div>
                         <div style="font-size: 0.8em; color: var(--text-muted);"><?php echo number_format($f['det_count']); ?> detections</div>
                     </div>
-                    <span class="insights-stats-count">~<?php echo $f['avg_peers']; ?> peers/hr</span>
+                    <span class="insights-stats-count"><?php echo $f['social_score']; ?> co-occurrences</span>
                 </div>
                 <?php endforeach; ?>
                 <?php endif; ?>
