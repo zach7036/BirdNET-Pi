@@ -113,7 +113,7 @@ if (isset($_GET['ascii'])) {
 
 <style>
     .report-container {
-        padding: <?php echo (isset($subview) && $subview == 'report') ? '0' : '20px'; ?>;
+        padding: 20px;
         max-width: <?php echo (isset($subview) && $subview == 'report') ? 'none' : '1200px'; ?>;
         margin: <?php echo (isset($subview) && $subview == 'report') ? '0' : '0 auto'; ?>;
         color: var(--text-primary);
@@ -143,6 +143,7 @@ if (isset($_GET['ascii'])) {
         display: flex;
         flex-wrap: wrap;
         gap: 20px;
+        margin-top: 50px;
         margin-bottom: 40px;
         width: 100%;
     }
@@ -283,6 +284,27 @@ if (isset($_GET['ascii'])) {
     .info-btn:hover .info-tooltip {
         opacity: 1;
         bottom: 140%;
+    }
+
+    /* Edge alignment for KPI card tooltips to prevent viewport clipping */
+    .kpi-card:first-child .info-tooltip {
+        left: 0;
+        transform: translateX(0);
+    }
+    .kpi-card:first-child .info-tooltip::after {
+        left: 10px;
+        transform: none;
+    }
+
+    .kpi-card:last-child .info-tooltip {
+        left: auto;
+        right: 0;
+        transform: translateX(0);
+    }
+    .kpi-card:last-child .info-tooltip::after {
+        left: auto;
+        right: 10px;
+        transform: none;
     }
 </style>
 
