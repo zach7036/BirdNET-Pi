@@ -119,8 +119,25 @@ if ($subview == 'environmental') {
     $wmo_codes = [0 => 'Clear sky', 1 => 'Mostly clear', 2 => 'Partly cloudy', 3 => 'Overcast', 45 => 'Fog', 48 => 'Rime fog', 51 => 'Light drizzle', 53 => 'Moderate drizzle', 55 => 'Dense drizzle', 61 => 'Slight rain', 63 => 'Moderate rain', 65 => 'Heavy rain', 71 => 'Slight snow', 73 => 'Moderate snow', 75 => 'Heavy snow', 80 => 'Slight showers', 81 => 'Moderate showers', 82 => 'Violent showers', 95 => 'Thunderstorm', 96 => 'Thunderstorm + hail', 99 => 'Thunderstorm + heavy hail'];
     $has_weather = ($db->querySingle("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='weather'") > 0) && ($db->querySingle("SELECT COUNT(*) FROM weather") > 0);
     if ($has_weather) {
-        $temp_res = $db->query("SELECT CASE WHEN w.Temp IS NULL THEN 'Unknown' WHEN w.Temp < 32 THEN 'Below 32°F' WHEN w.Temp < 46 THEN '32–45°F' WHEN w.Temp < 56 THEN '46–55°F' WHEN w.Temp < 66 THEN '56–65°F' WHEN w.Temp < 76 THEN '66–75°F' WHEN w.Temp < 86 THEN '76–85°F' WHEN w.Temp < 96 THEN '86–95°F' ELSE 'Above 95°F' END as bracket, COUNT(*) as det_count, COUNT(DISTINCT d.Sci_Name) as species_count, ROUND(AVG(w.Temp), 1) as avg_temp FROM detections d INNER JOIN weather w ON d.Date = w.Date AND CAST(substr(d.Time, 1, 2) AS INTEGER) = w.Hour GROUP BY bracket ORDER BY CASE WHEN bracket = 'Below 32°F' THEN 1 WHEN bracket = '32–45°F' THEN 2 WHEN bracket = '46–55°F' THEN 3 WHEN bracket = '56–65°F' THEN 4 WHEN bracket = '66–75°F' THEN 5 WHEN bracket = '76–85°F' THEN 6 WHEN bracket = '86–95°F' THEN 7 WHEN bracket = 'Above 95°F' THEN 8 ELSE 9 END ASC");
-        while($row = $temp_res->fetchArray(SQLITE3_ASSOC)) { $temp_brackets[] = $row; }
+        $temp_res = $db->query("SELECT CASE WHEN w.Temp IS NULL THEN 'Unknown' WHEN w.Temp < 32 THEN 'Below 32°F' WHEN w.Temp < 46 THEN '32–45°F' WHEN w.Temp < 56 THEN '46–55°F' WHEN w.Temp < 66 THEN '56–65°F' WHEN w.Temp < 76 THEN '66–75°F' WHEN w.Temp < 86 THEN '76–85°F' WHEN w.Temp < 96 THEN '86–95°F' ELSE 'Above 95°F' END as bracket, COUNT(*) as det_count, COUNT(DISTINCT d.Sci_Name) as species_count, ROUND(AVG(w.Temp), 1) as avg_temp FROM detections d INNER JOIN weather w ON d.Date = w.Date AND CAST(substr(d.Time, 1, 2) AS INTEGER) = w.Hour GROUP BY bracket");
+        $master_brackets = [
+            'Below 32°F' => ['bracket' => 'Below 32°F', 'det_count' => 0, 'species_count' => 0],
+            '32–45°F' => ['bracket' => '32–45°F', 'det_count' => 0, 'species_count' => 0],
+            '46–55°F' => ['bracket' => '46–55°F', 'det_count' => 0, 'species_count' => 0],
+            '56–65°F' => ['bracket' => '56–65°F', 'det_count' => 0, 'species_count' => 0],
+            '66–75°F' => ['bracket' => '66–75°F', 'det_count' => 0, 'species_count' => 0],
+            '76–85°F' => ['bracket' => '76–85°F', 'det_count' => 0, 'species_count' => 0],
+            '86–95°F' => ['bracket' => '86–95°F', 'det_count' => 0, 'species_count' => 0],
+            'Above 95°F' => ['bracket' => 'Above 95°F', 'det_count' => 0, 'species_count' => 0]
+        ];
+        while($row = $temp_res->fetchArray(SQLITE3_ASSOC)) {
+            if (isset($master_brackets[$row['bracket']])) {
+                $master_brackets[$row['bracket']] = $row;
+            } else if ($row['bracket'] == 'Unknown') {
+                $master_brackets['Unknown'] = $row;
+            }
+        }
+        $temp_brackets = array_values($master_brackets);
         $cond_res = $db->query("SELECT w.ConditionCode, COUNT(*) as det_count, COUNT(DISTINCT d.Sci_Name) as species_count FROM detections d INNER JOIN weather w ON d.Date = w.Date AND CAST(substr(d.Time, 1, 2) AS INTEGER) = w.Hour GROUP BY w.ConditionCode ORDER BY det_count DESC LIMIT 8");
         while($row = $cond_res->fetchArray(SQLITE3_ASSOC)) { $code = $row['ConditionCode']; $row['description'] = isset($wmo_codes[$code]) ? $wmo_codes[$code] : "Code $code"; $condition_impact[] = $row; }
         $ideal_res = $db->query("SELECT d.Com_Name, ROUND(AVG(w.Temp), 1) as avg_temp, ROUND(MIN(w.Temp), 1) as min_temp, ROUND(MAX(w.Temp), 1) as max_temp, COUNT(*) as cnt FROM detections d INNER JOIN weather w ON d.Date = w.Date AND CAST(substr(d.Time, 1, 2) AS INTEGER) = w.Hour GROUP BY d.Sci_Name HAVING cnt >= 5 ORDER BY cnt DESC");
@@ -823,9 +840,11 @@ $db->close();
                 <div class="insights-stats-item">
                     <div>
                         <div class="insights-stats-name" style="margin-bottom: 2px;"><?php echo $t['bracket']; ?></div>
-                        <div style="font-size: 0.8em; color: var(--text-muted);"><?php echo $t['species_count']; ?> species active</div>
+                        <div style="font-size: 0.8em; color: var(--text-muted);">
+                            <?php echo $t['det_count'] > 0 ? $t['species_count'] . ' species active' : 'No species recorded'; ?>
+                        </div>
                     </div>
-                    <span class="insights-stats-count"><?php echo number_format($t['det_count']); ?></span>
+                    <span class="insights-stats-count"><?php echo $t['det_count'] > 0 ? number_format($t['det_count']) : 'N/A'; ?></span>
                 </div>
                 <?php endforeach; ?>
                 <?php endif; ?>
