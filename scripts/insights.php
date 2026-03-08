@@ -39,7 +39,7 @@ if ($subview == 'dashboard') {
         $prev = $d_str;
     }
     $max_streak = max($max_s, $cur_s);
-    $rare_res = $db->query('SELECT Com_Name, Sci_Name, COUNT(*) as cnt, MIN(Date) as first_seen, MAX(Date) as last_seen FROM detections GROUP BY Sci_Name HAVING cnt < 5 ORDER BY cnt ASC, last_seen DESC LIMIT 10');
+    $rare_res = $db->query('SELECT Com_Name, Sci_Name, COUNT(*) as cnt, MIN(Date) as first_seen, MAX(Date) as last_seen FROM detections GROUP BY Sci_Name HAVING cnt < 5 ORDER BY cnt ASC, last_seen DESC');
     while($row = $rare_res->fetchArray(SQLITE3_ASSOC)) { $rarest[] = $row; }
     $rare_total = $db->querySingle('SELECT COUNT(*) FROM (SELECT Sci_Name FROM detections GROUP BY Sci_Name HAVING COUNT(*) < 5)') ?: 0;
     $total_detections = $db->querySingle('SELECT COUNT(*) FROM detections') ?: 0;
@@ -441,7 +441,7 @@ $db->close();
 
         <section class="insights-section">
             <div class="insights-section-title">💎 Rarest Detections (&lt; 5 ever) <span class="info-btn">ⓘ<span class="info-tooltip">These species are vagrants or potential misidentifications that have appeared very infrequently at your station.</span></span></div>
-            <div class="insights-stats-list">
+            <div class="insights-stats-list" style="max-height: 400px; overflow-y: auto;">
                 <?php if(empty($rarest)): ?>
                 <div class="insights-stats-item">
                     <span class="insights-stats-name">No rare species detected yet</span>
