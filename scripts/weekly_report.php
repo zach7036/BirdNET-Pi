@@ -355,10 +355,12 @@ if (isset($_GET['ascii'])) {
             <ul class="report-list">
                 <?php
                 $new_count = 0;
+                $new_rank = 1;
                 foreach ($detections as $d) {
                     if ($d['is_first_seen']) {
                         $new_count++;
-                        echo '<li class="report-item">';
+                        $hidden_class = ($new_rank > 10) ? 'hidden-item' : '';
+                        echo '<li class="report-item ' . $hidden_class . '">';
                         echo '  <div class="species-info">';
                         echo '    <span class="species-name">' . $d['name'] . '</span>';
                         echo '    <span class="species-sci">' . $d['sci'] . '</span>';
@@ -367,6 +369,7 @@ if (isset($_GET['ascii'])) {
                         echo '    <span class="count-num">' . number_format($d['count']) . '</span>';
                         echo '  </div>';
                         echo '</li>';
+                        $new_rank++;
                     }
                 }
                 if ($new_count == 0) {
@@ -374,6 +377,15 @@ if (isset($_GET['ascii'])) {
                 }
                 ?>
             </ul>
+            <?php if ($new_count > 10): ?>
+            <button class="show-list-btn" 
+                    onclick="toggleItems(this)" 
+                    data-expanded="false" 
+                    data-show-text="Show all <?php echo $new_count; ?> new species ↓" 
+                    data-hide-text="Show top 10 new species ↑">
+                Show all <?php echo $new_count; ?> new species ↓
+            </button>
+            <?php endif; ?>
         </section>
     </div>
 
