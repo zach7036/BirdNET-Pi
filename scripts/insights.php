@@ -253,6 +253,7 @@ $db->close();
         flex: 1 1 180px;
         min-width: 180px;
         backdrop-filter: blur(8px);
+        overflow: visible !important;
     }
     .insights-kpi-card:hover { 
         transform: translateY(-8px); 
@@ -274,6 +275,7 @@ $db->close();
         box-shadow: var(--shadow-sm);
         /* overflow: hidden; removed to allow tooltips to show */
         transition: all 0.3s ease;
+        overflow: visible !important;
     }
     .insights-section:hover {
         box-shadow: var(--shadow-md);

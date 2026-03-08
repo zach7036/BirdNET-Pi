@@ -159,6 +159,7 @@ if (isset($_GET['ascii'])) {
         max-width: none;
         position: relative;
         z-index: 1;
+        overflow: visible !important;
     }
     .kpi-card:hover { transform: translateY(-5px); z-index: 1000; }
     .kpi-val { font-size: 2em; font-weight: 800; display: block; margin-bottom: 4px; white-space: nowrap; }
@@ -196,6 +197,7 @@ if (isset($_GET['ascii'])) {
         box-shadow: var(--shadow-sm);
         position: relative;
         z-index: 1;
+        overflow: visible !important;
     }
     .report-section:hover { z-index: 500; }
     .section-title {
