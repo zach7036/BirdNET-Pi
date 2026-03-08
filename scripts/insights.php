@@ -675,10 +675,18 @@ $db->close();
             <?php endforeach; ?>
             <?php endif; ?>
         </div>
-    </section>
+    <?php endif; ?>
 </div>
 
-    <?php if ($subview == 'environmental' && $has_weather): ?>
+    <?php if ($subview == 'environmental'): ?>
+    <?php if (!$has_weather): ?>
+        <div style="text-align: center; padding: 100px 20px; color: var(--text-muted);">
+            <div style="font-size: 4em; margin-bottom: 20px;">🌤️</div>
+            <h2>Weather Data Not Available</h2>
+            <p>Your station does not have any weather data recorded in the database yet.</p>
+            <p style="font-size: 0.9em;">Weather correlations require the <strong>Weather Plugin</strong> to be active and populated.</p>
+        </div>
+    <?php else: ?>
     <!-- ====== PHASE 4: Weather Correlations ====== -->
     <h2 style="margin: 40px 0 20px; font-size: 1.5em; color: var(--text-heading);">🌤️ Weather Correlations</h2>
 
@@ -762,6 +770,7 @@ $db->close();
             <?php endif; ?>
         </div>
     </section>
+    <?php endif; ?>
     <?php endif; ?>
 
     <?php if ($subview == 'health'): ?>
