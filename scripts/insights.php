@@ -88,8 +88,8 @@ $dawn_res = $db->query("
 ");
 if ($dawn_res) {
     while($row = $dawn_res->fetchArray(SQLITE3_ASSOC)) {
-        $hrs = floor($row['avg_minutes'] / 60);
-        $mins = round($row['avg_minutes'] % 60);
+        $hrs = intval($row['avg_minutes'] / 60);
+        $mins = intval($row['avg_minutes']) % 60;
         $row['avg_time'] = sprintf('%d:%02d AM', $hrs, $mins);
         $dawn_chorus[] = $row;
     }
@@ -136,8 +136,8 @@ $noct_res = $db->query("
 if ($noct_res) {
     while($row = $noct_res->fetchArray(SQLITE3_ASSOC)) {
         $m = $row['avg_minutes'];
-        $hrs = floor($m / 60);
-        $mins = round($m % 60);
+        $hrs = intval($m / 60);
+        $mins = intval($m) % 60;
         if ($hrs >= 12) {
             $row['avg_time'] = sprintf('%d:%02d PM', $hrs == 12 ? 12 : $hrs - 12, $mins);
         } else {
