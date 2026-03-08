@@ -347,7 +347,7 @@ $db->close();
 <div class="insights-container">
     <header class="insights-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
         <div>
-            <h1>BirdNET Insights: <?php 
+            <h1>Insights: <?php 
                 if ($subview == 'dashboard') echo 'Dashboard';
                 elseif ($subview == 'environmental') echo 'Weather Impacts';
                 elseif ($subview == 'report') echo 'Weekly Report';
