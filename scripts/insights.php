@@ -86,7 +86,7 @@ if ($subview == 'behavior') {
     $peak_hour_count = max($hourly_activity);
     $nocturnal = []; $noct_res = $db->query("SELECT Com_Name, COUNT(*) as cnt, AVG(CAST(substr(Time, 1, 2) AS REAL) * 60 + CAST(substr(Time, 4, 2) AS REAL)) as avg_minutes FROM detections WHERE CAST(substr(Time, 1, 2) AS INTEGER) >= 22 OR CAST(substr(Time, 1, 2) AS INTEGER) < 4 GROUP BY Sci_Name HAVING cnt >= 2 ORDER BY cnt DESC");
     while($row = $noct_res->fetchArray(SQLITE3_ASSOC)) { $m = $row['avg_minutes']; $hrs = intval($m / 60); $mins = intval($m) % 60; if ($hrs >= 12) { $row['avg_time'] = sprintf('%d:%02d PM', $hrs == 12 ? 12 : $hrs - 12, $mins); } else { $row['avg_time'] = sprintf('%d:%02d AM', $hrs == 0 ? 12 : $hrs, $mins); } $nocturnal[] = $row; }
-    $activity_windows = []; $window_res = $db->query("SELECT Com_Name, MIN(Time) as earliest, MAX(Time) as latest, COUNT(*) as cnt FROM detections GROUP BY Sci_Name HAVING cnt >= 5 ORDER BY cnt DESC LIMIT 10");
+    $activity_windows = []; $window_res = $db->query("SELECT Com_Name, MIN(Time) as earliest, MAX(Time) as latest, COUNT(*) as cnt FROM detections GROUP BY Sci_Name HAVING cnt >= 5 ORDER BY cnt DESC");
     while($row = $window_res->fetchArray(SQLITE3_ASSOC)) { $e_h = intval(substr($row['earliest'], 0, 2)); $e_m = substr($row['earliest'], 3, 2); $l_h = intval(substr($row['latest'], 0, 2)); $l_m = substr($row['latest'], 3, 2); $row['earliest_fmt'] = sprintf('%d:%s %s', $e_h % 12 ?: 12, $e_m, $e_h < 12 ? 'AM' : 'PM'); $row['latest_fmt'] = sprintf('%d:%s %s', $l_h % 12 ?: 12, $l_m, $l_h < 12 ? 'AM' : 'PM'); $activity_windows[] = $row; }
 }
 
@@ -559,17 +559,20 @@ $db->close();
                 <span class="insights-stats-count">—</span>
             </div>
             <?php else: ?>
-            <?php foreach($activity_windows as $w): ?>
-            <div class="insights-stats-item">
+            <?php $rank_aw = 1; foreach($activity_windows as $w): ?>
+            <div class="insights-stats-item <?php echo $rank_aw > 10 ? 'hidden-item' : ''; ?>">
                 <div>
                     <div class="insights-stats-name" style="margin-bottom: 2px;"><?php echo $w['Com_Name']; ?></div>
                     <div style="font-size: 0.8em; color: var(--text-muted);"><?php echo number_format($w['cnt']); ?> total detections</div>
                 </div>
                 <span class="insights-stats-count" style="font-size: 0.9em;"><?php echo $w['earliest_fmt']; ?> → <?php echo $w['latest_fmt']; ?></span>
             </div>
-            <?php endforeach; ?>
+            <?php $rank_aw++; endforeach; ?>
             <?php endif; ?>
         </div>
+        <?php if(count($activity_windows) > 10): ?>
+        <button class="show-list-btn" onclick="showAllItems(this)">Show all <?php echo count($activity_windows); ?> species ↓</button>
+        <?php endif; ?>
     </section>
     <?php endif; ?>
 
