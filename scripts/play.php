@@ -526,6 +526,8 @@ for ($row = 0; $row < $num_rows; $row++) {
         
         .nav-cards-grid {
             display: flex;
+            flex-direction: row;
+            flex-wrap: nowrap;
             justify-content: space-between;
             gap: 20px;
             margin-bottom: 40px;
