@@ -873,7 +873,7 @@ $db->close();
 
     <!-- Seasonal Presence -->
     <section class="insights-section" style="margin-top: 30px;">
-        <div class="insights-section-title">🗓️ Seasonal Presence <span class="info-btn">ⓘ<span class="info-tooltip" style="width: 280px;">High-resolution analysis of activity (4 segments per month).<br><br>The <strong>height</strong> of each bar represents regional commonness from the BirdNET model. <br><br><strong>Blue highlights</strong> show when the bird was actually detected at your station.</span></span></div>
+        <div class="insights-section-title">🗓️ Seasonal Presence <span class="info-btn">ⓘ<span class="info-tooltip" style="width: 340px;"><strong>Classification Guide:</strong><br>• <strong>Year-round:</strong> Detected across 9+ months<br>• <strong>Seasonal:</strong> Detected across 3-8 months<br>• <strong>Transient:</strong> Detected &lt;3 months<br><br><strong>Data Accuracy Disclaimer:</strong><br>These classifications may be inaccurate if the station has been running for less than a full year, as it lacks seasonal historical context.<br><br>Bar <strong>height</strong> is expected frequency. <strong>Purple highlights</strong> are actual detections.</span></span></div>
         <div class="insights-stats-list">
             <?php if(empty($seasonal_top)): ?>
             <div class="insights-stats-item">
