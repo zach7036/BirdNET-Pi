@@ -132,6 +132,9 @@ function initCustomAudioPlayers() {
 
   // =================== Main Loop over all .custom-audio-player ===================
   document.querySelectorAll(".custom-audio-player").forEach((player) => {
+    // Skip players that have already been initialized
+    if (player.dataset.initialized === "true") return;
+    player.dataset.initialized = "true";
     let hasLoaded = false; // set to true once metadata is available
 
     // Audio/player data
