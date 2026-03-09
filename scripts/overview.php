@@ -595,17 +595,8 @@ if($dividedrefresh < 1) {
 }
 ?>
 
-<div id="most_recent_detection"></div>
 <h3>5 Most Recent Detections</h3>
 <div style="padding-bottom:8px;" id="detections_table"><h3>Loading...</h3></div>
-
-<h3>Currently Analyzing</h3>
-<?php
-$refresh = $config['RECORDING_LENGTH'];
-$time = time();
-echo "<img id=\"spectrogramimage\" style=\"max-height:200px;width:auto;\" src=\"spectrogram.png?nocache=$time\">";
-
-?>
 
 <div id="customimage"></div>
 <br>
@@ -623,7 +614,7 @@ function loadDetectionIfNewExists(previous_detection_identifier=undefined) {
   xhttp.onload = function() {
     // if there's a new detection that needs to be updated to the page
     if(this.responseText.length > 0 && !this.responseText.includes("Database is busy") && !this.responseText.includes("No Detections") || previous_detection_identifier == undefined) {
-      document.getElementById("most_recent_detection").innerHTML = this.responseText;
+      // Refresh KPIs and Recent Detections List
 
       // only going to load left chart & 5 most recents if there's a new detection
       loadLeftChart();
@@ -715,9 +706,6 @@ function refreshCustomImage(){
   updateCustomImage();
 }
 function startAutoRefresh() {
-    i_fn1 = window.setInterval(function(){
-                    document.getElementById("spectrogramimage").src = "spectrogram.png?nocache="+Date.now();
-                    }, <?php echo $refresh; ?>*1000);
     i_fn2 = window.setInterval(refreshDetection, <?php echo intval($dividedrefresh); ?>*1000);
     if (customImage) i_fn3 = window.setInterval(refreshCustomImage, 1000);
 }
@@ -733,7 +721,7 @@ document.addEventListener("visibilitychange", function() {
   console.log(document.visibilityState);
   console.log(document.hidden);
   if (document.hidden) {
-    clearInterval(i_fn1);
+    if (typeof i_fn1 !== 'undefined') clearInterval(i_fn1);
     clearInterval(i_fn2);
     if (customImage) clearInterval(i_fn3);
   } else {
