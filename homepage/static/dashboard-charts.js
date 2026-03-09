@@ -29,11 +29,16 @@
         xhr.send();
     }
 
-    function renderHeatmap(canvas, species, hourly, currentHour, weather) {
-        if (!species || species.length === 0) {
+    function renderHeatmap(canvas, data) {
+        if (!data || !data.species || data.species.length === 0) {
             canvas.parentElement.innerHTML = '<p style="text-align:center;padding:20px;color:#888;">No data available.</p>';
             return;
         }
+
+        var species = data.species;
+        var hourly = data.hourly;
+        var currentHour = data.currentHour;
+        var weather = data.weather;
 
         var displayed = species;
         var speciesNames = displayed.map(function (s) { return s.name; });
@@ -147,13 +152,16 @@
                 var img = imageCache[s.image];
                 if (!img) {
                     img = new Image();
-                    img.onload = function () {
-                        // Debounce re-render to avoid spamming
-                        clearTimeout(window._heatmapTimer);
-                        window._heatmapTimer = setTimeout(function () {
-                            renderHeatmap(canvas, species, hourly, currentHour, weather);
-                        }, 50);
-                    };
+                img.onload = function () {
+                    // Only re-render if this data set is still the most recent one
+                    if (data !== lastData) return;
+                    
+                    // Debounce re-render to avoid spamming
+                    clearTimeout(window._heatmapTimer);
+                    window._heatmapTimer = setTimeout(function () {
+                        renderHeatmap(canvas, data);
+                    }, 50);
+                };
                     img.src = s.image;
                     imageCache[s.image] = img;
                 }
@@ -229,7 +237,7 @@
     }
 
     // Tooltip for heatmap canvas
-    function addHeatmapTooltip(canvas, species, hourly, weather) {
+    function addHeatmapTooltip(canvas) {
         var tooltip = document.createElement('div');
         tooltip.className = 'chart-tooltip';
         tooltip.style.cssText = 'display:none;position:absolute;background:rgba(0,0,0,0.8);color:#fff;padding:6px 10px;border-radius:4px;font-size:12px;pointer-events:none;z-index:100;white-space:nowrap;';
@@ -242,10 +250,12 @@
         imgPreview.innerHTML = '<img style="width:100%;height:100%;object-fit:cover;border-radius:8px;image-rendering:-webkit-optimize-contrast;image-rendering:high-quality;">';
         document.body.appendChild(imgPreview);
 
-        var displayed = species;
-        var speciesNames = displayed.map(function (s) { return s.name; });
-
         canvas.addEventListener('mousemove', function (e) {
+            if (!lastData) return;
+            var species = lastData.species;
+            var hourly = lastData.hourly;
+            var weather = lastData.weather;
+
             var rect = canvas.getBoundingClientRect();
             // Use client coordinates relative to the bounding box (CSS pixels)
             var x = e.clientX - rect.left;
@@ -282,8 +292,9 @@
             }
             imgPreview.style.display = 'none';
 
-            if (x >= labelWidth && hour >= 0 && hour < 24 && row >= 0 && row < speciesNames.length) {
-                var name = speciesNames[row];
+            if (x >= labelWidth && hour >= 0 && hour < 24 && row >= 0 && row < species.length) {
+                var s = species[row];
+                var name = s.name;
                 var val = (hourly[name] && hourly[name][hour]) ? hourly[name][hour] : 0;
                 var weatherStr = "";
                 if (weather && weather[hour]) {
@@ -331,10 +342,10 @@
             fetchChartData(function (data) {
                 lastData = data;
                 if (heatCanvas) {
-                    renderHeatmap(heatCanvas, data.species, data.hourly, data.currentHour, data.weather);
+                    renderHeatmap(heatCanvas, data);
                     // Only add tooltip once
                     if (!heatCanvas.dataset.tooltipInit) {
-                        addHeatmapTooltip(heatCanvas, data.species, data.hourly, data.weather);
+                        addHeatmapTooltip(heatCanvas);
                         heatCanvas.dataset.tooltipInit = 'true';
                     }
                 }
@@ -350,7 +361,7 @@
             if (lastData) {
                 var heatCanvas = document.getElementById('hourlyHeatmap');
                 if (heatCanvas) {
-                    renderHeatmap(heatCanvas, lastData.species, lastData.hourly, lastData.currentHour, lastData.weather);
+                    renderHeatmap(heatCanvas, lastData);
                 }
             }
         }, 300);
