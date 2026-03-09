@@ -214,6 +214,7 @@ elseif ($config["LONGITUDE"] == "0.000") {
       });
     </script>
   </div>
+</form>
 
   <style>
   .sidebar-feed {
@@ -367,7 +368,6 @@ elseif ($config["LONGITUDE"] == "0.000") {
   </script>
 
 </div>
-</form>
 <script type="text/javascript" src="static/plupload.full.min.js"></script>
 <!--<script type="text/javascript" src="static/moxie.js"></script>
 <script type="text/javascript" src="static/plupload.dev.js"></script>-->
