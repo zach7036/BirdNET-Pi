@@ -119,7 +119,8 @@ if ($subview == 'migration') {
     $expected_freqs = [];
     if (!empty($seasonal_scis)) {
         $sci_str = implode(',', $seasonal_scis);
-        $cmd = "python3 scripts/get_seasonal_expected.py " . escapeshellarg($sci_str);
+        // Use the absolute path to the virtualenv python to ensuring it runs correctly from the web user
+        $cmd = get_home() . "/BirdNET-Pi/birdnet/bin/python3 " . __ROOT__ . "/scripts/get_seasonal_expected.py " . escapeshellarg($sci_str);
         $output = shell_exec($cmd);
         $expected_freqs = json_decode($output, true) ?: [];
     }
@@ -437,7 +438,7 @@ $db->close();
     .seasonal-bar-expected {
         width: 100%;
         background: var(--text-muted);
-        opacity: 0.15;
+        opacity: 0.45; /* Increased opacity for better visibility */
         border-radius: 1px;
         transition: height 0.3s ease;
     }
@@ -447,10 +448,11 @@ $db->close();
         left: 0;
         width: 100%;
         background: var(--accent);
-        height: 4px; /* Default height if detected */
+        height: 6px; /* Slightly taller for visibility */
         border-radius: 1px;
         opacity: 0;
         transition: opacity 0.2s ease;
+        z-index: 2;
     }
     .seasonal-bar-actual.detected {
         opacity: 1;
@@ -459,6 +461,25 @@ $db->close();
         width: 1px;
         height: 100%;
         background: var(--border);
+        margin: 0 1px;
+        opacity: 0.5;
+    }
+    .seasonal-month-labels {
+        display: flex;
+        gap: 2px;
+        margin-top: 4px;
+        padding: 0 6px;
+    }
+    .seasonal-month-label {
+        flex: 1;
+        text-align: center;
+        font-size: 0.6em;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+    }
+    .seasonal-label-spacer {
+        width: 1px;
         margin: 0 1px;
     }
     @media (max-width: 768px) {
@@ -875,27 +896,41 @@ $db->close();
                         <span style="color: <?php echo $status_colors[$s['status']]; ?>; font-weight: 700;"><?php echo $s['status']; ?></span>
                     </div>
                 </div>
-                <div class="seasonal-bars-container">
-                    <?php 
-                        $months_names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-                        for ($i = 0; $i < 48; $i++): 
-                    ?>
-                        <?php if ($i > 0 && $i % 4 == 0): ?>
-                            <div class="seasonal-month-divider"></div>
-                        <?php endif; ?>
-                        
+                <div style="display: flex; flex-direction: column;">
+                    <div class="seasonal-bars-container">
                         <?php 
-                            $expected = $s['expected_segments'][$i];
-                            $actual = $s['actual_segments'][$i];
-                            $month_idx = floor($i / 4);
-                            $week_in_month = ($i % 4) + 1;
-                            $tooltip = $months_names[$month_idx] . " (Seg $week_in_month): " . ($actual > 0 ? $actual . " detections" : "Expected frequency: " . round($expected * 100, 1) . "%");
+                            $months_names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                            for ($i = 0; $i < 48; $i++): 
                         ?>
-                        <div class="seasonal-bar-wrap" title="<?php echo $tooltip; ?>">
-                            <div class="seasonal-bar-expected" style="height: <?php echo max(5, $expected * 100); ?>%;"></div>
-                            <div class="seasonal-bar-actual <?php echo $actual > 0 ? 'detected' : ''; ?>"></div>
-                        </div>
-                    <?php endfor; ?>
+                            <?php if ($i > 0 && $i % 4 == 0): ?>
+                                <div class="seasonal-month-divider"></div>
+                            <?php endif; ?>
+                            
+                            <?php 
+                                $expected = $s['expected_segments'][$i];
+                                $actual = $s['actual_segments'][$i];
+                                $month_idx = floor($i / 4);
+                                $week_in_month = ($i % 4) + 1;
+                                $tooltip = $months_names[$month_idx] . " (Seg $week_in_month): " . ($actual > 0 ? $actual . " detections" : "Expected frequency: " . round($expected * 100, 1) . "%");
+                            ?>
+                            <div class="seasonal-bar-wrap" title="<?php echo $tooltip; ?>">
+                                <div class="seasonal-bar-expected" style="height: <?php echo max(5, $expected * 100); ?>%;"></div>
+                                <div class="seasonal-bar-actual <?php echo $actual > 0 ? 'detected' : ''; ?>"></div>
+                            </div>
+                        <?php endfor; ?>
+                    </div>
+                    <!-- Month Labels -->
+                    <div class="seasonal-month-labels">
+                        <?php 
+                            $month_initials = ['J','F','M','A','M','J','J','A','S','O','N','D'];
+                            foreach($month_initials as $idx => $mi):
+                        ?>
+                            <?php if ($idx > 0): ?>
+                                <div class="seasonal-label-spacer"></div>
+                            <?php endif; ?>
+                            <div class="seasonal-month-label"><?php echo $mi; ?></div>
+                        <?php endforeach; ?>
+                    </div>
                 </div>
             </div>
             <?php $rank_s++; endforeach; ?>
