@@ -419,13 +419,11 @@ $db->close();
         display: flex;
         gap: 2px;
         align-items: flex-end;
-        height: 32px;
+        height: 48px;
         background: var(--bg-primary);
         padding: 4px 6px;
         border-radius: 8px;
         border: 1px solid var(--border-light);
-        flex: 1 1 320px;
-        min-width: 280px;
         position: relative;
     }
     .seasonal-bar-wrap {
@@ -896,7 +894,7 @@ $db->close();
                         <span style="color: <?php echo $status_colors[$s['status']]; ?>; font-weight: 700;"><?php echo $s['status']; ?></span>
                     </div>
                 </div>
-                <div style="display: flex; flex-direction: column;">
+                <div style="display: flex; flex-direction: column; flex: 1 1 320px; min-width: 280px;">
                     <div class="seasonal-bars-container">
                         <?php 
                             $months_names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
