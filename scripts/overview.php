@@ -724,34 +724,37 @@ function refreshTopTen() {
 }
 function refreshDetection() {
   if (!document.hidden) {
-    const audioPlayers = document.querySelectorAll(".custom-audio-player");
-    // If no custom-audio-player elements are found, refresh
-    if (audioPlayers.length === 0) {
-      loadDetectionIfNewExists();
-      return;
-    }
-    // Check if any custom audio player is currently playing
+    // Check if ANY audio is currently playing on the page before refreshing
     let isPlaying = false;
+
+    // Check custom audio players
+    const audioPlayers = document.querySelectorAll(".custom-audio-player");
     audioPlayers.forEach((player) => {
       const audioEl = player.querySelector("audio");
       if (audioEl && audioEl.currentTime > 0 && !audioEl.paused && !audioEl.ended && audioEl.readyState > 2) {
         isPlaying = true;
       }
     });
-    // Also check for any playing audio in the 5 Most Recent Detections table
+
+    // Check ALL native audio elements on the page (e.g. in #detections_table)
     if (!isPlaying) {
-      const tableAudios = document.querySelectorAll("#detections_table audio");
-      tableAudios.forEach((audioEl) => {
-        if (audioEl && audioEl.currentTime > 0 && !audioEl.paused && !audioEl.ended && audioEl.readyState > 2) {
+      document.querySelectorAll("audio").forEach((audioEl) => {
+        if (audioEl.currentTime > 0 && !audioEl.paused && !audioEl.ended && audioEl.readyState > 2) {
           isPlaying = true;
         }
       });
     }
-    // If none are playing, refresh detections
-    if (!isPlaying) {
-      const currentIdentifier = audioPlayers[0]?.dataset.audioSrc || undefined;
-      loadDetectionIfNewExists(currentIdentifier);
+
+    // If something is playing, skip the refresh
+    if (isPlaying) return;
+
+    // Nothing playing, proceed with refresh
+    if (audioPlayers.length === 0) {
+      loadDetectionIfNewExists();
+      return;
     }
+    const currentIdentifier = audioPlayers[0]?.dataset.audioSrc || undefined;
+    loadDetectionIfNewExists(currentIdentifier);
   }
 }
 function loadFiveMostRecentDetections() {
