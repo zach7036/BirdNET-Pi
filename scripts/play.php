@@ -836,28 +836,64 @@ if(!isset($_GET['species']) && !isset($_GET['filename'])){
 
 #Specific Species
 if(isset($_GET['species'])){ ?>
-<div style="width: auto;
-   text-align: center">
-   <form action="views.php" method="GET">
-      <input type="hidden" name="view" value="Recordings">
-      <input type="hidden" name="species" value="<?php echo $_GET['species']; ?>">
-      <input type="hidden" name="sort" value="<?php echo $_GET['sort']; ?>">
-      <button <?php if(!isset($_GET['sort']) || $_GET['sort'] == "" || $_GET['sort'] == "date"){ echo "class='sortbutton active'";} else { echo "class='sortbutton'"; }?> type="submit" name="sort" value="date">
-         <img width=35px src="images/sort_date.svg" title="Sort by date" alt="Sort by date">
-      </button>
-      <button <?php if(isset($_GET['sort']) && $_GET['sort'] == "confidence"){ echo "class='sortbutton active'";} else { echo "class='sortbutton'"; }?> type="submit" name="sort" value="confidence">
-         <img src="images/sort_occ.svg" title="Sort by confidence" alt="Sort by confidence">
-      </button><br>
-      <label style="cursor: pointer; margin-top: 10px; margin-bottom: 10px;font-weight: normal; display: inline-flex; align-items: center; justify-content: center;">
-        <input type="checkbox" name="only_excluded" <?= isset($_GET['only_excluded']) ? 'checked' : '' ?> onchange="submit()" style="display:none;">
-        <span style="width: 40px; height: 20px; background: <?= isset($_GET['only_excluded']) ? '#555555' : 'rgba(85, 85, 85, 0.3)' ?>; border: 1px solid #777777; border-radius: 20px; display: inline-block; position: relative; margin-right: 8px; transition: background 0.4s, border 0.4s; box-sizing: border-box;">
-        <span style="width: 16px; height: 16px; background: white; border-radius: 50%; position: absolute; top: 1.5px; left: 2px; transition: 0.4s; display: flex; align-items: center; justify-content: center; font-size: 14px; color: black; <?= isset($_GET['only_excluded']) ? 'transform: translateX(20px);' : '' ?>">
-        <?= isset($_GET['only_excluded']) ? '✓' : '' ?>
-      </span></span>Only Show Purge Excluded</label>
-   </form>
-</div>
+
+<style>
+    .recording-detail-wrap { max-width: 900px; margin: 0 auto; padding: 10px; }
+    .species-header-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 20px 25px; margin-bottom: 15px; text-align: center; box-shadow: var(--shadow-sm); }
+    .species-header-card h2 { margin: 0 0 4px 0; font-size: 1.5em; color: var(--text-heading); }
+    .species-header-card .sci-name { font-style: italic; color: var(--text-secondary); font-size: 0.95em; margin-bottom: 8px; }
+    .species-header-card .info-links a { display: inline-flex; align-items: center; gap: 4px; margin: 0 6px; padding: 4px 10px; border-radius: 8px; background: var(--accent-subtle); color: var(--accent); text-decoration: none; font-size: 0.8em; font-weight: 600; transition: all 0.2s ease; }
+    .species-header-card .info-links a:hover { background: var(--accent); color: white; }
+    .species-header-card .info-links a img { width: 14px; height: 14px; }
+    .detail-sort-bar { position: sticky; top: 0; background: var(--bg-primary); padding: 12px 0; z-index: 100; margin-bottom: 12px; border-bottom: 1px solid var(--border-light); box-shadow: 0 4px 15px -10px rgba(0,0,0,0.1); }
+    .detail-sort-options { display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .detail-sort-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 20px; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-secondary); font-size: 0.85em; font-weight: 600; cursor: pointer; transition: all 0.2s ease; box-shadow: var(--shadow-sm); }
+    .detail-sort-btn img { width: 14px; height: 14px; opacity: 0.7; }
+    .detail-sort-btn.active { background: var(--accent); border-color: var(--accent); color: white; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3); }
+    .detail-sort-btn.active img { opacity: 1; filter: brightness(0) invert(1); }
+    .detail-sort-btn:hover:not(.active) { background: var(--bg-hover); }
+    .toggle-label { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.82em; font-weight: 500; color: var(--text-secondary); margin-left: 8px; padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg-card); transition: all 0.2s ease; }
+    .toggle-label:hover { border-color: var(--accent); }
+    .toggle-track { width: 34px; height: 18px; background: var(--border); border-radius: 10px; position: relative; transition: background 0.3s; }
+    .toggle-track.on { background: var(--accent); }
+    .toggle-knob { width: 14px; height: 14px; background: white; border-radius: 50%; position: absolute; top: 2px; left: 2px; transition: transform 0.3s; }
+    .toggle-track.on .toggle-knob { transform: translateX(16px); }
+    .recording-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 15px; margin-bottom: 10px; box-shadow: var(--shadow-sm); position: relative; transition: all 0.2s ease; }
+    .recording-card:hover { border-color: var(--accent); box-shadow: var(--shadow-md); }
+    .recording-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+    .recording-meta-left { display: flex; align-items: center; gap: 10px; font-size: 0.9em; color: var(--text-secondary); }
+    .recording-meta-left .rec-date { font-weight: 600; color: var(--text-heading); }
+    .recording-confidence { padding: 3px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 700; }
+    .conf-high { background: #dcfce7; color: #166534; }
+    .conf-med { background: #fef9c3; color: #854d0e; }
+    .conf-low { background: #fee2e2; color: #991b1b; }
+    .recording-actions { display: flex; gap: 8px; align-items: center; }
+    .recording-actions img { width: 20px; height: 20px; cursor: pointer; opacity: 0.5; transition: all 0.2s ease; }
+    .recording-actions img:hover { opacity: 1; transform: scale(1.15); }
+    .no-recordings-msg { text-align: center; padding: 40px 20px; color: var(--text-secondary); background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border); }
+    .no-recordings-msg b { color: var(--text-heading); }
+</style>
+
+<div class="recording-detail-wrap">
+    <div class="detail-sort-bar">
+        <form action="views.php" method="GET" class="detail-sort-options">
+            <input type="hidden" name="view" value="Recordings">
+            <input type="hidden" name="species" value="<?php echo $_GET['species']; ?>">
+            <button class="detail-sort-btn <?php echo (!isset($_GET['sort']) || $_GET['sort'] == '' || $_GET['sort'] == 'date') ? 'active' : ''; ?>" type="submit" name="sort" value="date">
+                <img src="images/sort_date.svg" alt="Date"> Date
+            </button>
+            <button class="detail-sort-btn <?php echo (isset($_GET['sort']) && $_GET['sort'] == 'confidence') ? 'active' : ''; ?>" type="submit" name="sort" value="confidence">
+                <img src="images/sort_occ.svg" alt="Confidence"> Confidence
+            </button>
+            <label class="toggle-label">
+                <input type="checkbox" name="only_excluded" <?= isset($_GET['only_excluded']) ? 'checked' : '' ?> onchange="submit()" style="display:none;">
+                <span class="toggle-track <?= isset($_GET['only_excluded']) ? 'on' : '' ?>"><span class="toggle-knob"></span></span>
+                Purge Excluded Only
+            </label>
+        </form>
+    </div>
+
 <?php
-  // add disk_check_exclude.txt lines into an array for grepping
   $fp = @fopen($home."/BirdNET-Pi/scripts/disk_check_exclude.txt", 'r'); 
 if ($fp) {
   $disk_check_exclude_arr = explode("\n", fread($fp, filesize($home."/BirdNET-Pi/scripts/disk_check_exclude.txt")));
@@ -871,16 +907,22 @@ $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 40;
 $result2 = fetch_all_detections($name, $_GET['sort'], $_SESSION['date']);
 $results=$result2->fetchArray(SQLITE3_ASSOC);
 $com_name = $results['Com_Name'];
-$result2->reset(); // reset the pointer to the beginning of the result set
+$result2->reset();
 $sciname = $name;
 $info_url = get_info_url($sciname);
 $url = $info_url['URL'];
-echo "<table>
-  <tr><th>$com_name<br><span style=\"font-weight:normal;\">
-  <i>$sciname</i></span><br>
-    <a href=\"$url\" target=\"_blank\"><img title=\"$url_title\" src=\"images/info.png\" width=\"20\"></a>
-    <a href=\"https://wikipedia.org/wiki/$sciname\" target=\"_blank\"><img title=\"Wikipedia\" src=\"images/wiki.png\" width=\"20\"></a>
-  </th></tr>";
+?>
+
+    <div class="species-header-card">
+        <h2><?php echo htmlspecialchars($com_name); ?></h2>
+        <div class="sci-name"><?php echo htmlspecialchars($sciname); ?></div>
+        <div class="info-links">
+            <a href="<?php echo $url; ?>" target="_blank"><img src="images/info.png"> Info</a>
+            <a href="https://wikipedia.org/wiki/<?php echo urlencode($sciname); ?>" target="_blank"><img src="images/wiki.png"> Wikipedia</a>
+        </div>
+    </div>
+
+<?php
   $iter=0;
   while($results=$result2->fetchArray(SQLITE3_ASSOC))
   {
@@ -893,7 +935,8 @@ echo "<table>
     $sciname = preg_replace('/ /', '_', $results['Sci_Name']);
     $sci_name = $results['Sci_Name'];
     $time = $results['Time'];
-    $values = round((float)round($results['Confidence'],2) * 100 ) . '%';
+    $conf_raw = (float)round($results['Confidence'],2);
+    $values = round($conf_raw * 100) . '%';
     $filename_formatted = $date."/".$comname."/".$results['File_Name'];
 
     // file was deleted by disk check, no need to show the detection in recordings
@@ -936,19 +979,29 @@ echo "<table>
         $shiftAction = "shift";
       }
 
-      echo "<tr>
-  <td class=\"relative\"> 
 
-<img style='cursor:pointer;right:120px' src='images/delete.svg' onclick='deleteDetection(\"".$filename_formatted."\")' class=\"copyimage\" width=25 title='Delete Detection'> 
-<img style='cursor:pointer;right:85px' src='images/bird.svg' onclick='changeDetection(\"".$filename_formatted."\")' class=\"copyimage\" width=25 title='Change Detection'> 
-<img style='cursor:pointer;right:45px' onclick='toggleLock(\"".$filename_formatted."\",\"".$type."\", this)' class=\"copyimage\" width=25 title=\"".$title."\" src=\"".$imageicon."\"> 
-<img style='cursor:pointer' onclick='toggleShiftFreq(\"".$filename_formatted."\",\"".$shiftAction."\", this)' class=\"copyimage\" width=25 title=\"".$shiftTitle."\" src=\"".$shiftImageIcon."\"> $date $time<br>$values<br>
+      $conf_class = $conf_raw >= 0.8 ? 'conf-high' : ($conf_raw >= 0.5 ? 'conf-med' : 'conf-low');
+      $display_date = date('M. j, Y', strtotime($date));
 
-        ".$imageelem."
-        </td>
-        </tr>";
+      echo "<div class='recording-card'>
+        <div class='recording-meta'>
+            <div class='recording-meta-left'>
+                <span class='rec-date'>$display_date $time</span>
+                <span class='recording-confidence $conf_class'>$values</span>
+            </div>
+            <div class='recording-actions'>
+                <img src='images/delete.svg' onclick='deleteDetection(\"$filename_formatted\")' title='Delete Detection'>
+                <img src='images/bird.svg' onclick='changeDetection(\"$filename_formatted\")' title='Change Detection'>
+                <img onclick='toggleLock(\"$filename_formatted\",\"$type\", this)' title=\"$title\" src=\"$imageicon\">
+                <img onclick='toggleShiftFreq(\"$filename_formatted\",\"$shiftAction\", this)' title=\"$shiftTitle\" src=\"$shiftImageIcon\">
+            </div>
+        </div>
+        $imageelem
+      </div>";
 
-  }if($iter == 0){ echo "<tr><td><b>No recordings were found.</b><br><br><span style='font-size:medium'>They may have been deleted to make space for new recordings. You can prevent this from happening in the future by clicking the <img src='images/unlock.svg' style='width:20px'> icon in the top right of a recording.<br>You can also modify this behavior globally under \"Full Disk Behavior\" <a href='views.php?view=Advanced'>here.</a></span></td></tr>";}echo "</table>";}
+  }if($iter == 0){ echo "<div class='no-recordings-msg'><b>No recordings were found.</b><br><br>They may have been deleted to make space for new recordings. You can prevent this from happening in the future by clicking the <img src='images/unlock.svg' style='width:20px'> icon in the top right of a recording.<br>You can also modify this behavior globally under \"Full Disk Behavior\" <a href='views.php?view=Advanced'>here.</a></div>";}
+echo "</div>"; // close recording-detail-wrap
+}
 
   if ($iter_additional) {
     echo "<div style='text-align:center'>";
