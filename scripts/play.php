@@ -547,9 +547,9 @@ if(!isset($_GET['species']) && !isset($_GET['filename'])){
 <br>
 <?php } ?>
 <?php if ($view != "choose") { ?>
+<table>
 <form action="views.php" method="GET">
 <input type="hidden" name="view" value="Recordings">
-<table>
 <?php } ?>
 <?php
   #By Date
@@ -574,7 +574,7 @@ if(!isset($_GET['species']) && !isset($_GET['filename'])){
     echo "</div>";
     
     // Resume arbitrary tag structure to prevent breaking the final if condition
-    if ($view != "choose") { echo "<table>"; }
+    if ($view != "choose") { echo "<form action=\"views.php\" method=\"GET\"><table>"; }
     
 
           #By Species
